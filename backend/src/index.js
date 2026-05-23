@@ -17,6 +17,7 @@ const PORT = process.env.PORT || 3001
 
 // ── Middleware ─────────────────────────────────────────────
 app.use(helmet())
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://plateforme-medicalliance.codepros.fr',
