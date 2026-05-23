@@ -3,6 +3,6 @@
   "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "env": {
-    "VITE_API_URL": "@medico_api_url"
+    "VITE_API_URL": "medico-production-54b8.up.railway.app"
   }
 }
