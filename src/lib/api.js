@@ -1,88 +1,182 @@
-// Client HTTP centralisé
-// Injecte automatiquement le token JWT dans chaque requête
+// =============================================================
+// API CLIENT
+// En mode démo (VITE_USE_MOCK=true ou pas d'API URL) :
+//   → utilise mockApi.js, aucun serveur nécessaire
+// En production :
+//   → appelle le vrai backend Express via VITE_API_URL
+// =============================================================
+import {
+  mockAuth, mockDashboard, mockDemandes, mockDiffusions,
+  mockDevis, mockLocations, mockAdherents,
+} from './mockApi'
 
-const BASE_URL = import.meta.env.VITE_API_URL
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+  || !import.meta.env.VITE_API_URL
+  || import.meta.env.VITE_API_URL === 'http://localhost:3001'
+  || import.meta.env.VITE_API_URL.startsWith('${{') // unresolved Vercel template
 
-function getToken() {
-  return localStorage.getItem('medico_token')
-}
+// ── Helpers pour le mode réel ─────────────────────────────
+const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
-async function request(method, path, body = null) {
+function getToken() { return localStorage.getItem('medico_token') }
+
+async function http(method, path, body) {
   const headers = { 'Content-Type': 'application/json' }
   const token = getToken()
   if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
+  const res = await fetch(`${BASE}${path}`, {
+    method, headers,
     body: body ? JSON.stringify(body) : undefined,
   })
-
-  // Token expiré → déconnexion
+  const text = await res.text()
+  let data = {}
+  try { data = JSON.parse(text) } catch { /* non-JSON response */ }
   if (res.status === 401) {
-    localStorage.removeItem('medico_token')
-    localStorage.removeItem('medico_user')
-    window.location.href = '/login'
-    return
+    // Session expirée (on avait déjà un token) → déconnecter et recharger
+    // Échec de login (pas de token) → lancer l'erreur normalement pour l'afficher
+    if (token) {
+      localStorage.removeItem('medico_token')
+      localStorage.removeItem('medico_user')
+      window.location.reload()
+      return
+    }
+    throw new Error(data.error || 'Identifiants incorrects')
   }
-
-  const data = await res.json()
   if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
   return data
 }
 
-export const api = {
-  get:    (path)         => request('GET',    path),
-  post:   (path, body)   => request('POST',   path, body),
-  patch:  (path, body)   => request('PATCH',  path, body),
-  delete: (path)         => request('DELETE', path),
+// ── Helper pour récupérer l'utilisateur courant depuis localStorage ──
+function currentUser() {
+  try { return JSON.parse(localStorage.getItem('medico_user') || 'null') } catch { return null }
 }
 
-// ── Auth ──────────────────────────────────────────────────
+// =============================================================
+// AUTH
+// =============================================================
 export const authApi = {
-  login:   (email, password)    => api.post('/auth/login', { email, password }),
-  logout:  ()                   => api.post('/auth/logout'),
-  me:      ()                   => api.get('/auth/me'),
-  refresh: (refresh_token)      => api.post('/auth/refresh', { refresh_token }),
+  login: (email, password) => USE_MOCK
+    ? mockAuth.login(email, password)
+    : http('POST', '/auth/login', { email, password }),
+
+  me: () => USE_MOCK
+    ? mockAuth.me(currentUser()?.id)
+    : http('GET', '/auth/me'),
+
+  logout: () => USE_MOCK
+    ? Promise.resolve({ ok: true })
+    : http('POST', '/auth/logout'),
 }
 
-// ── Dashboard ─────────────────────────────────────────────
+// =============================================================
+// DASHBOARD
+// =============================================================
 export const dashboardApi = {
-  kpis:     ()  => api.get('/dashboard'),
-  activity: ()  => api.get('/dashboard/activity'),
+  kpis: () => USE_MOCK
+    ? mockDashboard.kpis(currentUser()?.role)
+    : http('GET', '/dashboard'),
+
+  activity: () => USE_MOCK
+    ? mockDashboard.activity()
+    : http('GET', '/dashboard/activity'),
 }
 
-// ── Demandes ──────────────────────────────────────────────
+// =============================================================
+// DEMANDES
+// =============================================================
 export const demandesApi = {
-  list:          (params = {}) => api.get('/demandes?' + new URLSearchParams(params)),
-  get:           (id)          => api.get(`/demandes/${id}`),
-  create:        (body)        => api.post('/demandes', body),
-  updateStatut:  (id, statut)  => api.patch(`/demandes/${id}/statut`, { statut }),
+  list: (params = {}) => {
+    const user = currentUser()
+    return USE_MOCK
+      ? mockDemandes.list({ role: user?.role, org_id: user?.org_id, ...params })
+      : http('GET', '/demandes?' + new URLSearchParams(params))
+  },
+
+  get: (id) => USE_MOCK
+    ? mockDemandes.get(id)
+    : http('GET', `/demandes/${id}`),
+
+  create: (body) => {
+    const user = currentUser()
+    return USE_MOCK
+      ? mockDemandes.create(body, user)
+      : http('POST', '/demandes', body)
+  },
+
+  updateStatut: (id, statut) => USE_MOCK
+    ? mockDemandes.updateStatut(id, statut)
+    : http('PATCH', `/demandes/${id}/statut`, { statut }),
 }
 
-// ── Diffusions ────────────────────────────────────────────
+// =============================================================
+// DIFFUSIONS
+// =============================================================
 export const diffusionsApi = {
-  list:   (demande_id) => api.get(`/diffusions?demande_id=${demande_id}`),
-  match:  (demande_id) => api.post('/diffusions/match', { demande_id }),
-  send:   (demande_id, fournisseur_ids) => api.post('/diffusions', { demande_id, fournisseur_ids }),
+  list: (demande_id) => USE_MOCK
+    ? mockDiffusions.list(demande_id)
+    : http('GET', `/diffusions?demande_id=${demande_id}`),
+
+  match: (demande_id) => USE_MOCK
+    ? mockDiffusions.match(demande_id)
+    : http('POST', '/diffusions/match', { demande_id }),
+
+  send: (demande_id, fournisseur_ids) => USE_MOCK
+    ? mockDiffusions.send(demande_id, fournisseur_ids)
+    : http('POST', '/diffusions', { demande_id, fournisseur_ids }),
 }
 
-// ── Devis ─────────────────────────────────────────────────
+// =============================================================
+// DEVIS
+// =============================================================
 export const devisApi = {
-  list:     (demande_id) => api.get(`/devis?demande_id=${demande_id}`),
-  create:   (body)       => api.post('/devis', body),
-  accepter: (id)         => api.patch(`/devis/${id}/accepter`),
-  refuser:  (id)         => api.patch(`/devis/${id}/refuser`),
+  list: (demande_id) => {
+    const user = currentUser()
+    return USE_MOCK
+      ? mockDevis.list({ demande_id, fournisseur_id: user?.role === 'fournisseur' ? user.org_id : undefined })
+      : http('GET', `/devis?demande_id=${demande_id}`)
+  },
+
+  create: (body) => {
+    const user = currentUser()
+    return USE_MOCK
+      ? mockDevis.create(body, user)
+      : http('POST', '/devis', body)
+  },
+
+  accepter: (id) => USE_MOCK
+    ? mockDevis.accepter(id)
+    : http('PATCH', `/devis/${id}/accepter`),
+
+  refuser: (id) => USE_MOCK
+    ? mockDevis.refuser(id)
+    : http('PATCH', `/devis/${id}/refuser`),
 }
 
-// ── Locations ─────────────────────────────────────────────
+// =============================================================
+// LOCATIONS
+// =============================================================
 export const locationsApi = {
-  list:      ()                     => api.get('/locations'),
-  renouveler:(id, duree_mois)       => api.post(`/locations/${id}/renouveler`, { duree_mois }),
+  list: () => {
+    const user = currentUser()
+    return USE_MOCK
+      ? mockLocations.list({ role: user?.role, org_id: user?.org_id })
+      : http('GET', '/locations')
+  },
+
+  renouveler: (id, duree_mois) => USE_MOCK
+    ? mockLocations.renouveler(id, duree_mois)
+    : http('POST', `/locations/${id}/renouveler`, { duree_mois }),
 }
 
-// ── Adhérents ─────────────────────────────────────────────
+// =============================================================
+// ADHÉRENTS
+// =============================================================
 export const adherentsApi = {
-  list: (params = {}) => api.get('/adherents?' + new URLSearchParams(params)),
-  get:  (id)          => api.get(`/adherents/${id}`),
+  list: (params = {}) => USE_MOCK
+    ? mockAdherents.list(params)
+    : http('GET', '/adherents?' + new URLSearchParams(params)),
+
+  get: (id) => USE_MOCK
+    ? Promise.resolve({ data: null })
+    : http('GET', `/adherents/${id}`),
 }
