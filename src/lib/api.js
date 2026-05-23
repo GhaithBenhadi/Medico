@@ -1,7 +1,7 @@
 // Client HTTP centralisé
 // Injecte automatiquement le token JWT dans chaque requête
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'medico-production-54b8.up.railway.app'
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://medico-production-54b8.up.railway.app'
 
 function getToken() {
   return localStorage.getItem('medico_token')
