@@ -1,164 +1,142 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FileText, Search, Filter, Plus, Clock, CheckCircle2, AlertCircle, Package, ChevronRight, MapPin } from 'lucide-react'
+import { Search, Filter, Plus, ChevronRight, Clock, AlertCircle } from 'lucide-react'
 import { DEMANDES } from '../lib/mockData'
 
-const STATUT_META = {
-  nouvelle:    { label: 'Nouvelle',     color: 'text-gray-700 bg-gray-100 border-gray-200' },
-  diffusee:    { label: 'Diffusée',     color: 'text-violet-700 bg-violet-50 border-violet-200' },
-  en_attente:  { label: 'En attente',   color: 'text-amber-700 bg-amber-50 border-amber-200' },
-  devis_recus: { label: 'Devis reçus',  color: 'text-blue-700 bg-blue-50 border-blue-200' },
-  commandee:   { label: 'Commandée',    color: 'text-green-700 bg-green-50 border-green-200' },
-  annulee:     { label: 'Annulée',      color: 'text-red-700 bg-red-50 border-red-200' },
+const fade = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }
+const stagger = { show: { transition: { staggerChildren: 0.07 } } }
+
+const STATUT = {
+  brouillon:   { label: 'Brouillon',     color: 'bg-gray-500/20 text-gray-400' },
+  publiee:     { label: 'Publiée',       color: 'bg-blue-500/20 text-blue-400' },
+  diffusee:    { label: 'Diffusée',      color: 'bg-purple-500/20 text-purple-400' },
+  devis_recus: { label: 'Devis reçus',   color: 'bg-amber-500/20 text-amber-400' },
+  commandee:   { label: 'Commandée',     color: 'bg-emerald-500/20 text-emerald-400' },
 }
 
-const URGENCE_META = {
-  urgent:   { label: 'Urgent',    color: 'text-red-700 bg-red-50' },
-  standard: { label: 'Standard',  color: 'text-blue-700 bg-blue-50' },
-  faible:   { label: 'Faible',    color: 'text-gray-600 bg-gray-100' },
-}
+const CAT = { lits: 'Lits', fauteuils: 'Fauteuils', soins: 'Soins', manutention: 'Manutention' }
 
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.06 } } }
-const item = { hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }
-
-export default function Demandes({ onNavigate, user }) {
+export default function Demandes({ user, onNavigate }) {
+  const orgId = user?.org_id
+  const role = user?.role || 'medicalliance'
   const [search, setSearch] = useState('')
   const [filterStatut, setFilterStatut] = useState('all')
+  const [filterUrgence, setFilterUrgence] = useState('all')
 
-  const role = user?.role || 'medicalliance'
-  const org_id = user?.org_id
+  let demandes = DEMANDES
+  if (role === 'centrale')      demandes = DEMANDES.filter(d => d.centrale_id === orgId)
+  if (role === 'etablissement') demandes = DEMANDES.filter(d => d.etablissement_id === orgId)
+  if (role === 'fournisseur')   demandes = DEMANDES // fournisseur voit via AppelsDOffres, ici tous
 
-  let demandes = [...DEMANDES]
-  if (role === 'etablissement') demandes = demandes.filter(d => d.etablissement_id === org_id)
-  else if (role === 'centrale') demandes = demandes.filter(d => d.centrale_id === org_id)
-
-  const filtered = demandes.filter(d => {
-    const matchSearch = !search || d.description?.toLowerCase().includes(search.toLowerCase()) ||
-      d.ref?.toLowerCase().includes(search.toLowerCase()) ||
-      d.etablissement?.name?.toLowerCase().includes(search.toLowerCase())
-    const matchStatut = filterStatut === 'all' || d.statut === filterStatut
-    return matchSearch && matchStatut
-  })
-
-  const statuts = ['all', ...Object.keys(STATUT_META)]
+  if (filterStatut !== 'all')  demandes = demandes.filter(d => d.statut === filterStatut)
+  if (filterUrgence !== 'all') demandes = demandes.filter(d => d.urgence === filterUrgence)
+  if (search) demandes = demandes.filter(d =>
+    d.ref.toLowerCase().includes(search.toLowerCase()) ||
+    d.description?.toLowerCase().includes(search.toLowerCase()) ||
+    d.site_name?.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">
-            {role === 'etablissement' ? 'Mes demandes' : role === 'centrale' ? 'Demandes groupement' : 'Toutes les demandes'}
-          </h2>
-          <p className="text-sm text-gray-500 mt-0.5">{filtered.length} demande{filtered.length !== 1 ? 's' : ''} trouvée{filtered.length !== 1 ? 's' : ''}</p>
-        </div>
-        {role !== 'fournisseur' && (
-          <button
-            onClick={() => onNavigate('new-demande')}
-            className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" strokeWidth={2.5} />
-            Nouvelle demande
-          </button>
-        )}
-      </div>
+    <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl p-4 shadow-card border border-surface-100 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      {/* Toolbar */}
+      <motion.div variants={fade} className="flex flex-wrap items-center gap-3">
+        <div className="flex-1 min-w-48 relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
-            type="text"
+            value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher une demande…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-surface-50 border border-surface-200 rounded-xl text-sm focus:outline-none focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
+            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:border-brand-500 outline-none"
           />
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {statuts.map(s => (
-            <button
-              key={s}
-              onClick={() => setFilterStatut(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                filterStatut === s
-                  ? 'bg-brand-600 text-white'
-                  : 'bg-surface-50 text-gray-600 hover:bg-surface-100 border border-surface-200'
-              }`}
-            >
-              {s === 'all' ? 'Tous' : STATUT_META[s]?.label}
-            </button>
-          ))}
-        </div>
-      </div>
+
+        <select value={filterStatut} onChange={e => setFilterStatut(e.target.value)}
+          className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-brand-500 outline-none cursor-pointer">
+          <option value="all">Tous les statuts</option>
+          {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+
+        <select value={filterUrgence} onChange={e => setFilterUrgence(e.target.value)}
+          className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-300 focus:border-brand-500 outline-none cursor-pointer">
+          <option value="all">Toute urgence</option>
+          <option value="urgent">Urgent</option>
+          <option value="standard">Standard</option>
+        </select>
+
+        {(role === 'centrale' || role === 'etablissement') && (
+          <button
+            onClick={() => onNavigate?.('new-demande')}
+            className="flex items-center gap-2 bg-gradient-to-r from-brand-500 to-brand-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity shadow-glow ml-auto">
+            <Plus size={15}/> Nouvelle demande
+          </button>
+        )}
+      </motion.div>
+
+      {/* Count */}
+      <motion.div variants={fade} className="text-xs text-gray-500">
+        {demandes.length} demande{demandes.length !== 1 ? 's' : ''}
+      </motion.div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-card border border-surface-100 overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 px-6 py-3 border-b border-surface-100 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          <div className="col-span-1">Réf.</div>
-          <div className="col-span-3">Demande</div>
-          <div className="col-span-2">Établissement</div>
-          <div className="col-span-2">Statut</div>
-          <div className="col-span-1">Urgence</div>
-          <div className="col-span-1">Type</div>
-          <div className="col-span-1">Qté</div>
-          <div className="col-span-1">Action</div>
-        </div>
+      <motion.div variants={fade} className="surface rounded-xl shadow-card overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-xs text-gray-500 border-b border-white/5 bg-white/3">
+              <th className="text-left py-3 px-5">Référence</th>
+              <th className="text-left py-3 px-5">Établissement</th>
+              <th className="text-left py-3 px-5">Description</th>
+              <th className="text-left py-3 px-5">Catégorie</th>
+              <th className="text-right py-3 px-5">Qté</th>
+              <th className="text-left py-3 px-5">Urgence</th>
+              <th className="text-left py-3 px-5">Statut</th>
+              <th className="py-3 px-5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {demandes.map(d => {
+              const s = STATUT[d.statut] || STATUT.publiee
+              return (
+                <motion.tr key={d.id} variants={fade}
+                  className="border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer"
+                  onClick={() => onNavigate?.('demande-detail', { demandeId: d.id })}>
+                  <td className="py-3.5 px-5">
+                    <span className="font-mono text-brand-400 text-xs">{d.ref}</span>
+                  </td>
+                  <td className="py-3.5 px-5">
+                    <div>
+                      <p className="text-white">{d.etablissement.name}</p>
+                      <p className="text-xs text-gray-500">{d.city}</p>
+                    </div>
+                  </td>
+                  <td className="py-3.5 px-5 max-w-xs">
+                    <p className="text-gray-300 truncate">{d.description}</p>
+                  </td>
+                  <td className="py-3.5 px-5 text-gray-400">{CAT[d.categorie] || d.categorie}</td>
+                  <td className="py-3.5 px-5 text-right text-white font-medium">{d.quantite}</td>
+                  <td className="py-3.5 px-5">
+                    {d.urgence === 'urgent'
+                      ? <span className="flex items-center gap-1 text-red-400 text-xs"><AlertCircle size={12}/> Urgent</span>
+                      : <span className="flex items-center gap-1 text-gray-500 text-xs"><Clock size={12}/> Standard</span>
+                    }
+                  </td>
+                  <td className="py-3.5 px-5">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${s.color}`}>{s.label}</span>
+                  </td>
+                  <td className="py-3.5 px-5">
+                    <ChevronRight size={14} className="text-gray-600" />
+                  </td>
+                </motion.tr>
+              )
+            })}
+          </tbody>
+        </table>
+        {demandes.length === 0 && (
+          <div className="py-16 text-center">
+            <p className="text-gray-500 text-sm">Aucune demande trouvée</p>
+          </div>
+        )}
+      </motion.div>
 
-        <motion.div variants={container} initial="hidden" animate="show" className="divide-y divide-surface-50">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-              <FileText className="w-8 h-8 mb-3 opacity-30" />
-              <p className="text-sm font-medium">Aucune demande trouvée</p>
-              <p className="text-xs mt-1">Modifiez vos filtres ou créez une nouvelle demande</p>
-            </div>
-          ) : filtered.map(d => {
-            const statMeta = STATUT_META[d.statut] || STATUT_META.nouvelle
-            const urgMeta = URGENCE_META[d.urgence] || URGENCE_META.standard
-            return (
-              <motion.div
-                key={d.id}
-                variants={item}
-                onClick={() => onNavigate('demande-detail', { id: d.id })}
-                className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-surface-50 transition-colors cursor-pointer group items-center"
-              >
-                <div className="col-span-1">
-                  <span className="text-xs font-mono text-gray-400">{d.ref}</span>
-                </div>
-                <div className="col-span-3">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{d.description?.slice(0, 40)}…</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{d.categorie}</p>
-                </div>
-                <div className="col-span-2">
-                  <p className="text-sm text-gray-700 truncate">{d.etablissement?.name}</p>
-                  <p className="text-xs text-gray-400 flex items-center gap-1"><MapPin className="w-3 h-3" />{d.city}</p>
-                </div>
-                <div className="col-span-2">
-                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${statMeta.color}`}>
-                    {statMeta.label}
-                  </span>
-                </div>
-                <div className="col-span-1">
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${urgMeta.color}`}>
-                    {urgMeta.label}
-                  </span>
-                </div>
-                <div className="col-span-1">
-                  <span className="text-xs text-gray-500 capitalize">{d.type_demande}</span>
-                </div>
-                <div className="col-span-1">
-                  <span className="text-sm font-semibold text-gray-800">{d.quantite}</span>
-                </div>
-                <div className="col-span-1">
-                  <button className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs text-brand-600 font-medium">
-                    Voir <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </motion.div>
-            )
-          })}
-        </motion.div>
-      </div>
-    </div>
+    </motion.div>
   )
 }
