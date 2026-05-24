@@ -1,42 +1,39 @@
-import { Search, Bell, Plus } from 'lucide-react'
+import { Search, Bell, Plus, Inbox } from 'lucide-react'
 import { useState } from 'react'
 
-const pageTitles = {
-  'dashboard':                 { title: 'Dashboard',              sub: 'Vue d\'ensemble de votre activité' },
-  'new-request':               { title: 'Nouvelle demande',       sub: 'Créez et diffusez une demande d\'équipement' },
-  'network-distribution':      { title: 'Diffusion réseau',       sub: 'Matching intelligent avec vos fournisseurs premium' },
-  'supplier-quotes':           { title: 'Devis & Réponses',       sub: 'Comparez et sélectionnez les meilleures offres' },
-  'rental-management':         { title: 'Gestion locations',      sub: 'Suivi des équipements en location' },
-  'supplier-network':          { title: 'Réseau fournisseurs',    sub: 'Vos adhérents premium et leur couverture' },
-  'demandes-etablissements':   { title: 'Demandes reçues',        sub: 'Demandes transmises par vos établissements membres' },
-  'appels-offres':             { title: 'Appels d\'offres',       sub: 'Demandes reçues via Medicalliance' },
-  'mes-devis':                 { title: 'Mes devis',              sub: 'Devis soumis et en attente de réponse' },
-  'commandes':                 { title: 'Mes commandes',          sub: 'Commandes en cours et livrées' },
-  'mes-demandes':              { title: 'Mes demandes',           sub: 'Demandes transmises à votre centrale' },
-  'mes-commandes':             { title: 'Mes commandes',          sub: 'Suivi de vos commandes' },
-  'mes-locations':             { title: 'Mes équipements',        sub: 'Équipements en location et en service' },
-  'centrales':                 { title: 'Mes centrales',          sub: 'Centrales et groupements actifs sur le réseau' },
-  'adherents':                 { title: 'Adhérents réseau',       sub: 'Gestion des adhérents Medicalliance' },
-  'transactions':              { title: 'Transactions',           sub: 'Toutes les transactions de la plateforme' },
-  'performance':               { title: 'Performance réseau',     sub: 'KPIs et indicateurs du réseau' },
-  'catalogue':                 { title: 'Mon catalogue',          sub: 'Produits et références disponibles' },
-  'locations':                 { title: 'Mes locations',          sub: 'Équipements loués en cours' },
+const PAGE_TITLES = {
+  dashboard:        { title: 'Dashboard',              sub: 'Vue d\'ensemble de votre activité' },
+  demandes:         { title: 'Demandes',               sub: 'Toutes les demandes d\'équipements' },
+  'demande-detail': { title: 'Détail demande',         sub: 'Informations complètes et suivi' },
+  'new-demande':    { title: 'Nouvelle demande',       sub: 'Créez et diffusez une demande d\'équipement' },
+  matching:         { title: 'Matching',               sub: 'Matching intelligent avec vos fournisseurs premium' },
+  offres:           { title: 'Offres & Devis',         sub: 'Comparez et sélectionnez les meilleures offres' },
+  commandes:        { title: 'Commandes',              sub: 'Suivi des commandes passées' },
+  locations:        { title: 'Locations',              sub: 'Contrats de location en cours' },
+  reseau:           { title: 'Réseau premium',         sub: 'Adhérents certifiés Medicalliance' },
+  centrales:        { title: 'Centrales',              sub: 'Centrales d\'achat et groupements actifs' },
+  etablissements:   { title: 'Établissements',         sub: 'Établissements de santé membres' },
+  messagerie:       { title: 'Messagerie',             sub: 'Communications et échanges' },
+  reporting:        { title: 'Reporting',              sub: 'Analyses et indicateurs de performance' },
+  'appels-doffres': { title: 'Appels d\'offres',       sub: 'Demandes diffusées correspondant à votre profil' },
 }
 
-const roleCta = {
-  medicalliance: null,
-  centrale:      { label: 'Nouvelle demande', page: 'new-request', color: 'bg-violet-600 hover:bg-violet-700' },
-  fournisseur:   { label: 'Répondre à un AO', page: 'appels-offres', color: 'bg-emerald-600 hover:bg-emerald-700' },
-  etablissement: { label: 'Nouvelle demande', page: 'new-request', color: 'bg-amber-500 hover:bg-amber-600' },
+const ROLE_CTA = {
+  medicalliance: { label: 'Nouvelle demande', page: 'new-demande', icon: Plus,  color: 'bg-brand-600 hover:bg-brand-700' },
+  centrale:      { label: 'Nouvelle demande', page: 'new-demande', icon: Plus,  color: 'bg-violet-600 hover:bg-violet-700' },
+  fournisseur:   { label: 'Appels d\'offres', page: 'appels-doffres', icon: Inbox, color: 'bg-emerald-600 hover:bg-emerald-700' },
+  etablissement: { label: 'Nouvelle demande', page: 'new-demande', icon: Plus,  color: 'bg-amber-500 hover:bg-amber-600' },
 }
 
-export default function Header({ currentPage, onNavigate, role }) {
+export default function Header({ currentPage, onNavigate, user }) {
   const [searchFocused, setSearchFocused] = useState(false)
-  const { title, sub } = pageTitles[currentPage] || pageTitles['dashboard']
-  const cta = roleCta[role]
+  const role = user?.role || 'medicalliance'
+  const { title, sub } = PAGE_TITLES[currentPage] || PAGE_TITLES.dashboard
+  const cta = ROLE_CTA[role]
+  const CtaIcon = cta?.icon || Plus
 
   return (
-    <header className="h-14 shrink-0 bg-white border-b border-surface-200 flex items-center px-8 gap-6">
+    <header className="h-14 shrink-0 bg-white border-b border-surface-200 flex items-center px-6 gap-4">
       <div className="min-w-0">
         <h1 className="text-sm font-semibold text-gray-900 truncate">{title}</h1>
         <p className="text-xs text-gray-400 truncate hidden sm:block">{sub}</p>
@@ -65,7 +62,7 @@ export default function Header({ currentPage, onNavigate, role }) {
             onClick={() => onNavigate(cta.page)}
             className={`flex items-center gap-1.5 ${cta.color} text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors shadow-sm`}
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+            <CtaIcon className="w-3.5 h-3.5" strokeWidth={2.5} />
             {cta.label}
           </button>
         )}

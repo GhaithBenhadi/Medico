@@ -1,112 +1,99 @@
 import { useState } from 'react'
-import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
-import RoleSidebar from './components/RoleSidebar'
+import Sidebar from './components/Sidebar'
 import Header from './components/Header'
 
-// Medicalliance
-import MedicallanceDashboard from './pages/medicalliance/Dashboard'
-// Centrale
-import CentraleDashboard from './pages/Dashboard'
-import DemandesEtablissements from './pages/centrale/DemandesEtablissements'
-import NewRequest from './pages/NewRequest'
-import NetworkDistribution from './pages/NetworkDistribution'
-import SupplierQuotes from './pages/SupplierQuotes'
-import RentalManagement from './pages/RentalManagement'
-import SupplierNetwork from './pages/SupplierNetwork'
-// Fournisseur
-import FournisseurDashboard from './pages/fournisseur/Dashboard'
-// Etablissement
-import EtablissementDashboard from './pages/etablissement/Dashboard'
+// Shared pages
+import Demandes from './pages/Demandes'
+import DemandeDetail from './pages/DemandeDetail'
+import NewDemande from './pages/NewDemande'
+import Offres from './pages/Offres'
+import Commandes from './pages/Commandes'
+import Locations from './pages/Locations'
+import Messagerie from './pages/Messagerie'
+import Reporting from './pages/Reporting'
 
-const pagesByRole = {
+// Medicalliance-only
+import Dashboard from './pages/Dashboard'
+import Matching from './pages/Matching'
+import Reseau from './pages/Reseau'
+import Centrales from './pages/Centrales'
+import Etablissements from './pages/Etablissements'
+
+// Role-specific dashboards
+import DashboardCentrale from './pages/DashboardCentrale'
+import DashboardFournisseur from './pages/DashboardFournisseur'
+import DashboardEtablissement from './pages/DashboardEtablissement'
+
+// Fournisseur-specific
+import AppelsDOffres from './pages/AppelsDOffres'
+
+const PAGES_BY_ROLE = {
   medicalliance: {
-    dashboard:          MedicallanceDashboard,
-    adherents:          SupplierNetwork,
-    'supplier-network': SupplierNetwork,
-    centrales:          CentraleDashboard,
-    transactions:       SupplierQuotes,
-    performance:        CentraleDashboard,
+    dashboard: Dashboard,
+    demandes: Demandes,
+    'demande-detail': DemandeDetail,
+    'new-demande': NewDemande,
+    matching: Matching,
+    offres: Offres,
+    commandes: Commandes,
+    locations: Locations,
+    reseau: Reseau,
+    centrales: Centrales,
+    etablissements: Etablissements,
+    messagerie: Messagerie,
+    reporting: Reporting,
   },
   centrale: {
-    dashboard:                 CentraleDashboard,
-    'demandes-etablissements': DemandesEtablissements,
-    'new-request':             NewRequest,
-    'network-distribution':    NetworkDistribution,
-    'supplier-quotes':         SupplierQuotes,
-    'rental-management':       RentalManagement,
-    'supplier-network':        SupplierNetwork,
+    dashboard: DashboardCentrale,
+    demandes: Demandes,
+    'demande-detail': DemandeDetail,
+    'new-demande': NewDemande,
+    commandes: Commandes,
+    locations: Locations,
+    messagerie: Messagerie,
+    reporting: Reporting,
   },
   fournisseur: {
-    dashboard:       FournisseurDashboard,
-    'appels-offres': FournisseurDashboard,
-    'mes-devis':     SupplierQuotes,
-    commandes:       RentalManagement,
-    locations:       RentalManagement,
-    catalogue:       SupplierNetwork,
+    dashboard: DashboardFournisseur,
+    'appels-doffres': AppelsDOffres,
+    offres: Offres,
+    commandes: Commandes,
+    locations: Locations,
+    messagerie: Messagerie,
   },
   etablissement: {
-    dashboard:       EtablissementDashboard,
-    'new-request':   NewRequest,
-    'mes-demandes':  EtablissementDashboard,
-    'mes-commandes': RentalManagement,
-    'mes-locations': RentalManagement,
+    dashboard: DashboardEtablissement,
+    'new-demande': NewDemande,
+    demandes: Demandes,
+    'demande-detail': DemandeDetail,
+    commandes: Commandes,
+    locations: Locations,
+    messagerie: Messagerie,
   },
-}
-
-function AppShell() {
-  const { user, loading, logout } = useAuth()
-  const [currentPage, setCurrentPage] = useState('dashboard')
-
-  const handleLogin = (loggedUser) => {
-    setCurrentPage('dashboard')
-  }
-
-  const handleLogout = async () => {
-    await logout()
-    setCurrentPage('dashboard')
-  }
-
-  // Spinner pendant la vérification du token
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-50">
-        <span className="w-6 h-6 border-2 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  // Non connecté → page login
-  if (!user) {
-    return <Login onLogin={handleLogin} />
-  }
-
-  const role  = user.role
-  const pages = pagesByRole[role] || {}
-  const PageComponent = pages[currentPage] || pages['dashboard']
-
-  return (
-    <div className="flex h-screen bg-surface-50 overflow-hidden w-full">
-      <RoleSidebar
-        role={role}
-        currentPage={currentPage}
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Header currentPage={currentPage} onNavigate={setCurrentPage} role={role} />
-        <main className="flex-1 overflow-y-auto scrollbar-thin px-8 py-6">
-          {PageComponent && <PageComponent onNavigate={setCurrentPage} />}
-        </main>
-      </div>
-    </div>
-  )
 }
 
 export default function App() {
+  const [user, setUser] = useState(null)
+  const [currentPage, setPage] = useState('dashboard')
+  const [pageParams, setParams] = useState({})
+
+  const navigate = (page, params = {}) => { setPage(page); setParams(params) }
+
+  if (!user) return <Login onLogin={(u) => { setUser(u); setPage('dashboard') }} />
+
+  const pages = PAGES_BY_ROLE[user.role] || PAGES_BY_ROLE.medicalliance
+  const PageComponent = pages[currentPage] || pages.dashboard
+
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <div className="flex h-screen bg-surface-50 overflow-hidden w-full">
+      <Sidebar currentPage={currentPage} onNavigate={navigate} onLogout={() => { setUser(null); setPage('dashboard') }} user={user} />
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Header currentPage={currentPage} onNavigate={navigate} user={user} />
+        <main className="flex-1 overflow-y-auto scrollbar-thin px-6 py-6">
+          <PageComponent onNavigate={navigate} params={pageParams} user={user} />
+        </main>
+      </div>
+    </div>
   )
 }
